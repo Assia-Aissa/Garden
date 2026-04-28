@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assia's Growth Garden 🌸</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Firebase SDK (your config is already here!) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
+  // Your Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyD4mPjIM1nANcXivhXTRKvYN3eUt0OLVoA",
+    authDomain: "garden-52e5c.firebaseapp.com",
+    projectId: "garden-52e5c",
+    storageBucket: "garden-52e5c.firebasestorage.app",
+    messagingSenderId: "49737114730",
+    appId: "1:49737114730:web:2f7969e1fcc7453e305613",
+    measurementId: "G-9B1FC8EH9H"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  window._auth = auth;
+  window._db = db;
+  window._provider = provider;
+  window._doc = doc;
+  window._setDoc = setDoc;
+  window._getDoc = getDoc;
+
+  let appData = null;
+
+  function setAppData(data) { appData = data; }
+  window.getAppData = () => appData;
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('appContainer').style.display = 'block';
+      document.getElementById('userAvatar').src = user.photoURL || '';
+      document.getElementById('userName').textContent = user.displayName?.split(' ')[0] || 'Assia';
+      await loadFromFirestore(user.uid);
+    } else {
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('appContainer').style.display = 'none';
+    }
+  });
+
+  window.saveData = async function() {
+    const user = auth.currentUser;
+    if (!user || !appData) return;
+    await setDoc(doc(db, "users", user.uid), { data: JSON.stringify(appData) });
+  };
+
+  async function loadFromFirestore(uid) {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (snap.exists()) {
+      try {
+        const saved = JSON.parse(snap.data().data);
+        if (window.loadAppData) window.loadAppData(saved);
+      } catch(e) { console.log(e); }
+    }
+    if (window.initAppAfterLogin) window.initAppAfterLogin();
+  }
+
+  window.googleLogin = async function() {
+    try { await signInWithPopup(auth, provider); }
+    catch(e) { alert("Login failed: " + e.message); }
+  };
+
+  window.logout = async function() {
+    if (confirm("Sign out?")) await signOut(auth);
+  };
+</script>
+
+<style>
+:root {
+  --ink: #1a1410;
+  --forest: #2c4a3e;
+  --sage: #5a7a6b;
+  --moss: #8aaa8f;
+  --petal: #e8b4b8;
+  --blush: #f7dede;
+  --cream: #fdf6ec;
+  --ivory: #fffaf4;
+  --gold: #c9913d;
+  --amber: #e8c87a;
+  --plum: #4a2d3e;
+  --mauve: #b08a9e;
+  --mist: #e8ede9;
+  --paper: #f9f4ed;
+  --shadow: rgba(26,20,16,0.08);
+  --shadow-md: rgba(26,20,16,0.14);
+
+  --font-display: 'Playfair Display', serif;
+  --font-serif: 'Cormorant Garamond', serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* SIDEBAR */
+.sidebar {
+  position: fixed;
+  left: 0; top: 0;
+  width: 240px; height: 100vh;
+  background: var(--forest);
+  display: flex; flex-direction: column;
+  padding: 0;
+  z-index: 200;
+  transition: width 0.35s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+}
+.sidebar.collapsed { width: 64px; }
+
+.sidebar-top {
+  padding: 1.5rem 1.2rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+.sidebar.collapsed .sidebar-top { padding: 1.2rem 0.8rem; }
+
+.logo-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 0.8rem; }
+.logo-icon { font-size: 1.6rem; flex-shrink: 0; }
+.logo-text {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--amber);
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+.sidebar.collapsed .logo-text { opacity: 0; width: 0; overflow: hidden; }
+
+.level-chip {
+  background: rgba(201,145,61,0.2);
+  border: 1px solid rgba(201,145,61,0.4);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  color: var(--amber);
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+.sidebar.collapsed .level-chip { opacity: 0; }
+
+.xp-mini { margin-top: 8px; transition: opacity 0.2s; }
+.xp-mini-bar { background: rgba(255,255,255,0.1); border-radius: 10px; height: 4px; overflow: hidden; }
+.xp-mini-fill { background: linear-gradient(90deg, var(--petal), var(--amber)); height: 100%; width: 0%; transition: width 0.6s ease; }
+.xp-mini-label { font-size: 0.65rem; color: rgba(255,255,255,0.5); margin-top: 3px; }
+.sidebar.collapsed .xp-mini { opacity: 0; }
+
+.nav-scroll { flex: 1; overflow-y: auto; padding: 0.5rem 0.6rem 1rem; }
+.nav-scroll::-webkit-scrollbar { width: 3px; }
+.nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+
+.nav-section-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.3);
+  padding: 0.8rem 0.6rem 0.3rem;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+.sidebar.collapsed .nav-section-label { opacity: 0; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: rgba(255,255,255,0.65);
+  font-size: 0.85rem;
+  font-weight: 400;
+  position: relative;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.nav-item:hover { background: rgba(255,255,255,0.08); color: white; }
+.nav-item.active { background: rgba(232,180,184,0.18); color: var(--petal); }
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 20%; bottom: 20%;
+  width: 3px;
+  background: var(--petal);
+  border-radius: 0 3px 3px 0;
+}
+.nav-icon { font-size: 1rem; flex-shrink: 0; min-width: 22px; text-align: center; }
+.nav-label { transition: opacity 0.2s; }
+.sidebar.collapsed .nav-label { opacity: 0; width: 0; }
+
+.toggle-btn {
+  margin: 0 0.6rem 1rem;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.5);
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.toggle-btn:hover { background: rgba(255,255,255,0.12); color: white; }
+
+/* MAIN */
+.main {
+  margin-left: 240px;
+  min-height: 100vh;
+  transition: margin-left 0.35s cubic-bezier(.4,0,.2,1);
+  padding: 2rem 2rem 4rem;
+}
+.main.expanded { margin-left: 64px; }
+
+/* PAGE */
+.page { display: none; }
+.page.active { display: block; animation: pageIn 0.4s ease; }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-header { margin-bottom: 2rem; }
+.page-header h1 { font-family: var(--font-display); font-size: 2rem; color: var(--forest); line-height: 1.15; }
+.page-header p { color: var(--sage); font-size: 0.9rem; margin-top: 4px; }
+
+/* CARDS */
+.card {
+  background: var(--ivory);
+  border-radius: 20px;
+  padding: 1.5rem;
+  border: 1px solid rgba(90,122,107,0.15);
+  box-shadow: 0 4px 20px var(--shadow);
+  margin-bottom: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--petal), var(--amber), var(--moss));
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.card:hover::before { opacity: 1; }
+
+.card-title {
+  font-family: var(--font-serif);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--forest);
+  margin-bottom: 1.2rem;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* STATS */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.stat-card {
+  background: var(--forest);
+  border-radius: 20px;
+  padding: 1.3rem 1rem;
+  text-align: center;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::after {
+  content: attr(data-emoji);
+  position: absolute;
+  right: -5px; bottom: -8px;
+  font-size: 3.5rem;
+  opacity: 0.12;
+  pointer-events: none;
+}
+.stat-number { font-family: var(--font-display); font-size: 2.2rem; color: var(--amber); line-height: 1; }
+.stat-label { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 4px; }
+
+.level-bar-wrap { margin: 0.5rem 0 0.8rem; }
+.level-bar { background: var(--mist); border-radius: 20px; height: 12px; overflow: hidden; }
+.level-bar-fill {
+  background: linear-gradient(90deg, var(--petal), var(--gold));
+  height: 100%;
+  border-radius: 20px;
+  transition: width 0.8s ease;
+  position: relative;
+}
+.level-bar-fill::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.level-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--sage); margin-top: 4px; }
+
+.dash-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem; }
+.today-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 1.5rem; }
+
+.hourly-list { max-height: 560px; overflow-y: auto; padding-right: 4px; }
+.hour-row {
+  display: grid; grid-template-columns: 52px 1fr;
+  align-items: center;
+  border-bottom: 1px solid rgba(90,122,107,0.1);
+  padding: 5px 0;
+  transition: background 0.15s;
+  border-radius: 6px;
+}
+.hour-row:hover { background: rgba(90,122,107,0.04); }
+.hour-lbl { font-size: 0.75rem; font-weight: 500; color: var(--sage); letter-spacing: 0.03em; }
+.hour-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.83rem;
+  color: var(--ink);
+  padding: 5px 6px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.hour-input:focus { outline: none; background: rgba(232,180,184,0.12); }
+.hour-input::placeholder { color: rgba(90,122,107,0.4); }
+
+.priority-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0.75rem 0.9rem;
+  background: var(--paper);
+  border-radius: 14px;
+  margin-bottom: 0.5rem;
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.priority-item:hover { border-color: var(--petal); }
+.priority-cb { width: 18px; height: 18px; accent-color: var(--petal); cursor: pointer; flex-shrink: 0; }
+.priority-text { flex: 1; font-size: 0.85rem; }
+.priority-text.done { text-decoration: line-through; opacity: 0.5; }
+.xp-pill {
+  background: linear-gradient(135deg, var(--amber), var(--gold));
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.delete-btn { background: none; border: none; cursor: pointer; font-size: 0.8rem; color: rgba(90,122,107,0.4); transition: color 0.2s; padding: 2px 4px; }
+.delete-btn:hover { color: #c0392b; }
+
+.add-row { display: flex; gap: 8px; margin-top: 10px; }
+.add-row input, .add-row select {
+  font-family: var(--font-body);
+  border: 1px solid rgba(90,122,107,0.2);
+  border-radius: 10px;
+  padding: 0.45rem 0.8rem;
+  background: var(--paper);
+  font-size: 0.82rem;
+  color: var(--ink);
+  transition: border-color 0.2s;
+}
+.add-row input { flex: 1; }
+.add-row input:focus, .add-row select:focus { outline: none; border-color: var(--moss); }
+
+.nn-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0.6rem 0.8rem;
+  background: rgba(138,170,143,0.12);
+  border-radius: 12px;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+}
+.nn-item input[type="checkbox"] { accent-color: var(--moss); }
+
+.review-textarea {
+  width: 100%;
+  border: 1px solid rgba(90,122,107,0.2);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  font-family: var(--font-body);
+  font-size: 0.83rem;
+  resize: vertical;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  transition: border-color 0.2s;
+}
+.review-textarea:focus { outline: none; border-color: var(--moss); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--forest);
+  color: white;
+  border: none; border-radius: 12px;
+  padding: 0.55rem 1.2rem;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--plum); transform: translateY(-1px); box-shadow: 0 4px 12px var(--shadow-md); }
+.btn:active { transform: translateY(0); }
+.btn-sm { padding: 0.35rem 0.8rem; font-size: 0.75rem; border-radius: 8px; }
+.btn-petal { background: var(--petal); color: var(--ink); }
+.btn-petal:hover { background: var(--mauve); color: white; }
+.btn-ghost { background: transparent; color: var(--sage); border: 1px solid rgba(90,122,107,0.25); }
+.btn-ghost:hover { background: var(--mist); color: var(--forest); }
+
+.weeks-stack { display: flex; flex-direction: column; gap: 2.5rem; }
+.week-block {
+  background: var(--ivory);
+  border-radius: 24px;
+  border: 1px solid rgba(90,122,107,0.15);
+  box-shadow: 0 4px 24px var(--shadow);
+  overflow: hidden;
+  transition: box-shadow 0.3s;
+}
+.week-block:hover { box-shadow: 0 8px 32px var(--shadow-md); }
+.week-block-header {
+  background: linear-gradient(135deg, var(--forest), var(--plum));
+  padding: 1.2rem 1.5rem;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem;
+}
+.week-block-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--amber);
+  display: flex; align-items: center; gap: 8px;
+}
+.week-date-input {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: white;
+  text-align: center;
+  min-width: 180px;
+}
+.week-date-input:focus { outline: none; background: rgba(255,255,255,0.15); }
+.week-days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; }
+.week-day-col {
+  border-right: 1px solid rgba(90,122,107,0.1);
+  padding: 1rem;
+  min-height: 200px;
+}
+.week-day-col:last-child { border-right: none; }
+.day-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sage);
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--petal);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.day-name.weekend { border-bottom-color: var(--amber); color: var(--gold); }
+.day-todo { list-style: none; margin-bottom: 0.5rem; }
+.day-todo-item {
+  display: flex; align-items: flex-start; gap: 5px;
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.day-todo-item input[type="checkbox"] { accent-color: var(--petal); margin-top: 2px; flex-shrink: 0; }
+.day-todo-item span { flex: 1; word-break: break-word; }
+.day-todo-item span.done { text-decoration: line-through; opacity: 0.45; }
+.day-rm-btn { background: none; border: none; cursor: pointer; color: rgba(90,122,107,0.3); font-size: 0.65rem; padding: 1px; line-height: 1; transition: color 0.15s; }
+.day-rm-btn:hover { color: #c0392b; }
+.day-add-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px dashed rgba(90,122,107,0.3);
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.73rem;
+  color: var(--ink);
+  padding: 3px 0;
+}
+.day-add-input:focus { outline: none; border-bottom-color: var(--moss); }
+.week-bottom {
+  padding: 1rem 1.5rem;
+  background: rgba(90,122,107,0.04);
+  border-top: 1px solid rgba(90,122,107,0.1);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+.week-notes-area {
+  width: 100%;
+  border: 1px solid rgba(90,122,107,0.18);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  background: var(--ivory);
+  color: var(--ink);
+  resize: none;
+  min-height: 80px;
+  line-height: 1.6;
+}
+.week-notes-area:focus { outline: none; border-color: var(--moss); }
+.week-bottom-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--sage); margin-bottom: 5px; }
+.add-week-bar { display: flex; justify-content: center; margin-bottom: 1rem; }
+
+.pfe-progress-wrap { margin-bottom: 1.5rem; }
+.pfe-progress { background: var(--mist); border-radius: 20px; height: 10px; overflow: hidden; }
+.pfe-fill { background: linear-gradient(90deg, var(--moss), var(--gold)); height: 100%; transition: width 0.6s ease; }
+.pfe-percent { font-size: 0.78rem; color: var(--sage); margin-top: 4px; }
+.season-tag {
+  display: inline-block;
+  background: rgba(138,170,143,0.18);
+  color: var(--forest);
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.split-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.5rem; }
+.task-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.65rem 0.9rem;
+  background: var(--paper);
+  border-radius: 12px;
+  margin-bottom: 0.5rem;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  gap: 8px;
+}
+.task-item:hover { border-color: rgba(90,122,107,0.2); }
+.task-cb { accent-color: var(--moss); width: 17px; height: 17px; flex-shrink: 0; }
+.task-text { flex: 1; font-size: 0.83rem; }
+.task-text.done { text-decoration: line-through; opacity: 0.5; }
+
+.reward-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 1rem; }
+.reward-card {
+  background: var(--paper);
+  border-radius: 18px;
+  padding: 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.25s;
+}
+.reward-card:hover { border-color: var(--petal); transform: translateY(-3px); box-shadow: 0 6px 20px var(--shadow); }
+.reward-card.locked { opacity: 0.5; cursor: not-allowed; filter: grayscale(30%); }
+.reward-name { font-family: var(--font-serif); font-size: 1rem; margin-bottom: 4px; }
+.reward-cost { color: var(--gold); font-weight: 600; font-size: 0.82rem; }
+
+.pomo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.timer-face {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, var(--forest), var(--plum));
+  border-radius: 20px;
+  color: white;
+}
+.timer-display {
+  font-family: 'Courier New', monospace;
+  font-size: 4rem;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  color: var(--amber);
+  text-shadow: 0 0 20px rgba(232,200,122,0.3);
+  line-height: 1;
+  margin: 1rem 0;
+}
+.timer-label { font-size: 0.75rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.1em; }
+.timer-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }
+
+.level-hero {
+  background: linear-gradient(135deg, var(--gold), var(--petal));
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.level-hero-name { font-family: var(--font-display); font-size: 2.5rem; color: var(--forest); }
+.level-hero-desc { color: var(--plum); margin-top: 0.4rem; font-style: italic; }
+.level-item {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1rem;
+  background: var(--paper);
+  border-radius: 16px;
+  margin-bottom: 0.7rem;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+.level-item.unlocked { border-color: rgba(138,170,143,0.4); }
+.level-icon { font-size: 1.8rem; }
+.level-info { flex: 1; }
+.level-name-text { font-family: var(--font-serif); font-size: 1rem; font-weight: 600; color: var(--forest); }
+.level-req { font-size: 0.75rem; color: var(--sage); }
+.level-badge-status { font-size: 0.75rem; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+.level-badge-status.earned { background: rgba(138,170,143,0.2); color: var(--forest); }
+.level-badge-status.locked { background: rgba(90,122,107,0.08); color: var(--sage); }
+
+.review-q {
+  background: var(--paper);
+  border-radius: 16px;
+  padding: 1.2rem;
+  margin-bottom: 1rem;
+  border-left: 4px solid var(--petal);
+}
+.review-q.forest { border-left-color: var(--moss); }
+.review-q.gold { border-left-color: var(--amber); }
+.review-q-label { font-family: var(--font-serif); font-size: 1rem; font-weight: 600; color: var(--forest); margin-bottom: 0.7rem; }
+
+.affirmation-box {
+  background: linear-gradient(135deg, var(--forest), var(--plum));
+  border-radius: 18px;
+  padding: 1.5rem;
+  text-align: center;
+  color: white;
+}
+.affirmation-text {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.3rem;
+  color: var(--amber);
+  line-height: 1.4;
+  margin-bottom: 1rem;
+}
+
+.toast {
+  position: fixed;
+  bottom: 2rem; right: 2rem;
+  background: var(--forest);
+  color: white;
+  padding: 0.8rem 1.4rem;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  box-shadow: 0 8px 24px var(--shadow-md);
+  z-index: 9999;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(.4,0,.2,1);
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.chip { display: inline-flex; align-items: center; background: var(--mist); border-radius: 20px; padding: 3px 10px; font-size: 0.72rem; color: var(--sage); font-weight: 500; }
+.divider { height: 1px; background: rgba(90,122,107,0.12); margin: 1.2rem 0; }
+
+/* RESPONSIVE */
+@media (max-width: 1100px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .dash-grid { grid-template-columns: 1fr; }
+  .today-grid { grid-template-columns: 1fr; }
+  .split-layout { grid-template-columns: 1fr; }
+  .pomo-grid { grid-template-columns: 1fr; }
+  .week-days-grid { grid-template-columns: repeat(4, 1fr); }
+  .week-bottom { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .main { margin-left: 64px; padding: 1rem; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .week-days-grid { grid-template-columns: 1fr 1fr; }
+  .reward-grid { grid-template-columns: 1fr 1fr; }
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(90,122,107,0.25); border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" style="
+  display:flex; align-items:center; justify-content:center;
+  min-height:100vh; background: linear-gradient(135deg,#2c4a3e,#4a2d3e);
+  font-family:'DM Sans',sans-serif;">
+  <div style="background:#fffaf4; border-radius:28px; padding:3rem 2.5rem;
+    text-align:center; max-width:380px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="font-size:3rem; margin-bottom:0.5rem;">🌸</div>
+    <h1 style="font-family:'Playfair Display',serif; font-size:1.8rem; color:#2c4a3e; margin-bottom:0.3rem;">
+      Growth Garden
+    </h1>
+    <p style="color:#5a7a6b; font-size:0.9rem; margin-bottom:2rem;">
+      Your personal growth companion
+    </p>
+    <button onclick="googleLogin()" style="
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      background:#2c4a3e; color:white; border:none; border-radius:14px;
+      padding:0.85rem 1.5rem; font-size:0.9rem; font-weight:500;
+      cursor:pointer; width:100%; font-family:inherit; transition:all 0.2s;">
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <path fill="#EA4335" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+        <path fill="#4285F4" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.909-2.259c-.806.54-1.837.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.101-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"/>
+        <path fill="#34A853" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <p style="color:#b08a9e; font-size:0.72rem; margin-top:1.2rem;">
+      Your data is private and saved securely to your account
+    </p>
+  </div>
+</div>
+
+<!-- APP (hidden until logged in) -->
+<div id="appContainer" style="display:none;">
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-top">
+    <div class="logo-wrap">
+      <span class="logo-icon">🌸</span>
+      <div class="logo-text">Assia's<br>Growth Garden</div>
+    </div>
+    <!-- User badge -->
+    <div style="display:flex; align-items:center; gap:8px; padding:0.7rem 1rem;
+      background:rgba(255,255,255,0.06); border-radius:12px; margin-bottom:0.5rem;">
+      <img id="userAvatar" src="" width="30" height="30"
+        style="border-radius:50%; object-fit:cover; border:2px solid var(--petal);">
+      <span id="userName" style="font-size:0.82rem; color:white; flex:1;">...</span>
+      <button onclick="logout()" style="background:none;border:none;cursor:pointer;
+        font-size:0.75rem; color:rgba(255,255,255,0.4);" title="Sign out">⏻</button>
+    </div>
+    <div class="level-chip" id="levelChip">🌱 Seedling</div>
+    <div class="xp-mini">
+      <div class="xp-mini-bar"><div class="xp-mini-fill" id="xpMiniFill"></div></div>
+      <div class="xp-mini-label" id="xpMiniLabel">0 XP</div>
+    </div>
+  </div>
+  <div class="nav-scroll">
+    <div class="nav-section-label">Overview</div>
+    <div class="nav-item active" data-page="dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></div>
+    <div class="nav-item" data-page="today"><span class="nav-icon">⭐</span><span class="nav-label">Today</span></div>
+    <div class="nav-section-label">Planning</div>
+    <div class="nav-item" data-page="weeklycompass"><span class="nav-icon">🧭</span><span class="nav-label">Weekly Compass</span></div>
+    <div class="nav-item" data-page="weeklyreview"><span class="nav-icon">💭</span><span class="nav-label">Weekly Review</span></div>
+    <div class="nav-section-label">Projects</div>
+    <div class="nav-item" data-page="pfe"><span class="nav-icon">🌿</span><span class="nav-label">PFE Project</span></div>
+    <div class="nav-item" data-page="internship"><span class="nav-icon">💼</span><span class="nav-label">Internship</span></div>
+    <div class="nav-section-label">Tools</div>
+    <div class="nav-item" data-page="pomodoro"><span class="nav-icon">🍅</span><span class="nav-label">Pomodoro</span></div>
+    <div class="nav-item" data-page="rewards"><span class="nav-icon">🎁</span><span class="nav-label">Treasure Shop</span></div>
+    <div class="nav-item" data-page="levels"><span class="nav-icon">🏆</span><span class="nav-label">Levels</span></div>
+  </div>
+  <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+</aside>
+
+<!-- MAIN -->
+<main class="main" id="main">
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="page active">
+    <div class="page-header">
+      <h1>Good morning, Assia ✨</h1>
+      <p>Your garden is growing beautifully. Keep nurturing it.</p>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" data-emoji="✨"><div class="stat-number" id="totalXP">0</div><div class="stat-label">Total XP</div></div>
+      <div class="stat-card" data-emoji="🔥"><div class="stat-number" id="streakDays">0</div><div class="stat-label">Day Streak</div></div>
+      <div class="stat-card" data-emoji="🌸"><div class="stat-number" id="todayXP">0</div><div class="stat-label">Today's XP</div></div>
+      <div class="stat-card" data-emoji="📚"><div class="stat-number" id="hoursStudied">0</div><div class="stat-label">Focus Hours</div></div>
+    </div>
+    <div class="dash-grid">
+      <div>
+        <div class="card">
+          <div class="card-title">🌿 Level Progress</div>
+          <div class="level-bar-wrap">
+            <div class="level-bar"><div class="level-bar-fill" id="levelProgress" style="width:0%"></div></div>
+            <div class="level-meta"><span id="currentLevelName">Seedling 🌱</span><span id="nextLevelInfo">500 XP to Sprout</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">📈 Weekly XP Chart</div>
+          <canvas id="weeklyChart" style="max-height:200px;"></canvas>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">🎯 Quick Priorities</div>
+          <div id="dashPriorities"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">⚡ Today's Habits</div>
+          <div id="dashHabits"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TODAY -->
+  <div id="today" class="page">
+    <div class="page-header">
+      <h1>Today's Garden 🌸</h1>
+      <p id="todayDate">—</p>
+    </div>
+    <div class="today-grid">
+      <div class="card" style="padding-bottom:1rem;">
+        <div class="card-title">⏰ Hourly Schedule <span class="chip">+10 XP / filled hour</span></div>
+        <div class="hourly-list" id="hourlyTable"></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">🎯 Main Priorities</div>
+          <div id="prioritiesList"></div>
+          <div class="add-row">
+            <input type="text" id="newPriority" placeholder="Add priority...">
+            <select id="priorityXP">
+              <option value="50">+50 XP</option>
+              <option value="30">+30 XP</option>
+              <option value="20">+20 XP</option>
+            </select>
+            <button class="btn btn-sm btn-petal" onclick="addPriority()">＋</button>
+          </div>
+        </div>
+        <div class="card" style="background: linear-gradient(135deg,rgba(138,170,143,0.1),var(--ivory));">
+          <div class="card-title">⚠️ Non-Negotiables</div>
+          <div id="nonNegotiablesList"></div>
+          <div class="add-row" style="margin-top:8px;">
+            <input type="text" id="newNN" placeholder="Add core habit...">
+            <button class="btn btn-sm btn-ghost" onclick="addNonNegotiable()">＋</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">📝 End of Day Review</div>
+          <textarea class="review-textarea" id="endDayReview" rows="4" placeholder="What went well? What to improve? Wins to celebrate..."></textarea>
+          <div style="margin-top:10px;"><button class="btn" onclick="saveEndDayReview()">Save Review + Claim XP 🌟</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEEKLY COMPASS -->
+  <div id="weeklycompass" class="page">
+    <div class="page-header">
+      <h1>Weekly Compass 🧭</h1>
+      <p>Plan each week, track your tasks day by day, reflect below.</p>
+    </div>
+    <div class="add-week-bar">
+      <button class="btn" onclick="addWeek()">＋ Add New Week</button>
+    </div>
+    <div class="weeks-stack" id="weeksStack"></div>
+  </div>
+
+  <!-- PFE -->
+  <div id="pfe" class="page">
+    <div class="page-header">
+      <h1>PFE Project 🌿</h1>
+      <p>Plant Disease Detection — your research roadmap</p>
+    </div>
+    <div class="card">
+      <div class="pfe-progress-wrap">
+        <div class="pfe-progress"><div class="pfe-fill" id="pfeProgress" style="width:0%"></div></div>
+        <div class="pfe-percent" id="pfePercent">0% complete</div>
+      </div>
+      <div id="pfeTasks"></div>
+      <div class="divider"></div>
+      <div class="add-row">
+        <input type="text" id="pfeTaskName" placeholder="New PFE task..." style="flex:2;">
+        <select id="pfeSeason">
+          <option>Month 1: Research</option>
+          <option>Month 2: Model Dev</option>
+          <option>Month 3: App Dev</option>
+          <option>Month 4: Deployment</option>
+        </select>
+        <button class="btn btn-sm" onclick="addPFETask()">＋ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERNSHIP -->
+  <div id="internship" class="page">
+    <div class="page-header">
+      <h1>Internship 💼</h1>
+      <p>Tasks, learning logs, and daily wins</p>
+    </div>
+    <div class="split-layout">
+      <div class="card">
+        <div class="card-title">✅ To-Do List</div>
+        <div id="internshipTasks"></div>
+        <div class="add-row" style="margin-top:10px;">
+          <input type="text" id="internTaskName" placeholder="New task...">
+          <button class="btn btn-sm" onclick="addInternTask()">＋</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📓 Learning Log</div>
+        <textarea class="review-textarea" id="internshipLog" rows="14" placeholder="What I learned today, code snippets, key insights, questions to ask..."></textarea>
+        <div style="margin-top:10px;"><button class="btn" onclick="saveInternLog()">Save Log</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REWARDS -->
+  <div id="rewards" class="page">
+    <div class="page-header">
+      <h1>Treasure Shop 🎁</h1>
+      <p>You've earned it — treat yourself mindfully.</p>
+    </div>
+    <div class="card">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.2rem; flex-wrap:wrap; gap:0.5rem;">
+        <div style="font-family:var(--font-serif); font-size:1.1rem; color:var(--forest);">Available: <strong id="availableXP">0</strong> ✨ XP</div>
+        <button class="btn btn-sm" onclick="addCustomReward()">＋ Custom Reward</button>
+      </div>
+      <div class="reward-grid" id="rewardGrid"></div>
+    </div>
+  </div>
+
+  <!-- POMODORO -->
+  <div id="pomodoro" class="page">
+    <div class="page-header">
+      <h1>Pomodoro Focus 🍅</h1>
+      <p>Deep work sessions with intention.</p>
+    </div>
+    <div class="pomo-grid">
+      <div class="timer-face">
+        <div class="timer-label">Focus Session</div>
+        <div class="timer-display" id="timerDisplay">25:00</div>
+        <div class="timer-label" id="timerPhase">Ready to focus?</div>
+        <div class="timer-btns">
+          <button class="btn btn-sm btn-petal" onclick="setTimer(25)">25 min</button>
+          <button class="btn btn-sm btn-petal" onclick="setTimer(50)">50 min</button>
+          <button class="btn btn-sm btn-petal" onclick="setTimer(120)">2 hrs</button>
+        </div>
+        <div class="timer-btns" style="margin-top:8px;">
+          <button class="btn btn-sm" onclick="startTimer()">▶ Start</button>
+          <button class="btn btn-sm btn-ghost" style="color:rgba(255,255,255,0.7); border-color:rgba(255,255,255,0.2);" onclick="pauseTimer()">⏸ Pause</button>
+          <button class="btn btn-sm btn-ghost" style="color:rgba(255,255,255,0.7); border-color:rgba(255,255,255,0.2);" onclick="resetTimer()">↺ Reset</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 Tasks to Focus On</div>
+        <div id="pomodoroTaskList"></div>
+        <p style="font-size:0.75rem; color:var(--sage); margin-top:12px;">Check off tasks as you complete them during focus blocks ✨</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEVELS -->
+  <div id="levels" class="page">
+    <div class="page-header">
+      <h1>Your Journey 🏆</h1>
+      <p>Every XP point is a step forward.</p>
+    </div>
+    <div class="level-hero">
+      <div class="level-hero-name" id="heroLevelName">Seedling 🌱</div>
+      <div class="level-hero-desc" id="heroLevelDesc">Every master was once a beginner</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🌟 All Achievement Levels</div>
+      <div id="allLevelsList"></div>
+    </div>
+  </div>
+
+  <!-- WEEKLY REVIEW -->
+  <div id="weeklyreview" class="page">
+    <div class="page-header">
+      <h1>Weekly Reflection 💭</h1>
+      <p>Honest, kind, and intentional self-reflection.</p>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+      <div>
+        <div class="review-q">
+          <div class="review-q-label">🌑 Shadow Question — What am I avoiding by saying I'm too tired?</div>
+          <textarea class="review-textarea" id="shadowAnswer" rows="3" placeholder="Be honest with yourself..."></textarea>
+        </div>
+        <div class="review-q forest">
+          <div class="review-q-label">🏆 Biggest win this week</div>
+          <textarea class="review-textarea" id="weeklyWin" rows="2" placeholder="Celebrate yourself..."></textarea>
+        </div>
+        <div class="review-q gold">
+          <div class="review-q-label">📉 What challenged me most</div>
+          <textarea class="review-textarea" id="weeklyChallenge" rows="2" placeholder="No judgment, just insight..."></textarea>
+        </div>
+        <div class="review-q">
+          <div class="review-q-label">🌱 What I'll do differently next week</div>
+          <textarea class="review-textarea" id="weeklyChange" rows="2" placeholder="One small shift..."></textarea>
+        </div>
+        <div class="review-q forest">
+          <div class="review-q-label">💧 Energy audit — What drained me? What filled me?</div>
+          <textarea class="review-textarea" id="energyAudit" rows="3" placeholder="Drains: ... Fills: ..."></textarea>
+        </div>
+        <div class="review-q gold">
+          <div class="review-q-label">🌙 One thing I want to let go of this week</div>
+          <textarea class="review-textarea" id="letGo" rows="2" placeholder="A worry, a habit, a thought pattern..."></textarea>
+        </div>
+      </div>
+      <div>
+        <div class="affirmation-box" style="margin-bottom:1.2rem;">
+          <div class="affirmation-text" id="affirmationText">"I am becoming the woman I want to be."</div>
+          <button class="btn btn-sm btn-petal" onclick="refreshAffirmation()">New Affirmation 🕊️</button>
+        </div>
+        <div class="card">
+          <div class="card-title">📊 Week Rating</div>
+          <div id="weekRatingStars" style="display:flex; gap:8px; margin-bottom:0.8rem; flex-wrap:wrap;">
+            <span style="font-size:0.82rem; color:var(--sage); align-self:center;">Rate your week:</span>
+          </div>
+          <div id="starsRow" style="display:flex; gap:6px; font-size:1.8rem; cursor:pointer; margin-bottom:0.8rem;"></div>
+          <textarea class="review-textarea" id="weekRatingNote" rows="2" placeholder="One word to describe your week..."></textarea>
+        </div>
+        <div class="card">
+          <div class="card-title">🎯 Intentions for next week</div>
+          <textarea class="review-textarea" id="nextWeekIntentions" rows="4" placeholder="3 intentions for the week ahead..."></textarea>
+        </div>
+        <div class="card">
+          <div class="card-title">💌 Letter to future me</div>
+          <textarea class="review-textarea" id="futureLetter" rows="5" placeholder="Dear future Assia..."></textarea>
+        </div>
+        <div style="margin-top:1rem;">
+          <button class="btn" onclick="saveWeeklyReview()">Save Weekly Review 🌟</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div> <!-- closes appContainer -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ─── DATA MODEL ─────────────────────────────────── */
+let appData = {
+  totalXP: 0, streak: 0, studyMinutes: 0,
+  hourlySchedule: {},
+  priorities: [
+    {text:"Main Mission", xp:50, completed:false},
+    {text:"2nd Priority", xp:30, completed:false},
+    {text:"3rd Priority", xp:30, completed:false}
+  ],
+  nonNegotiables: ["Quran + intention","Journal + gratitude","Morning routine","PFE 1hr"],
+  weeks: [],
+  pfeTasks: [],
+  internshipTasks: [],
+  internshipLog: "",
+  rewards: [],
+  endDayReview: "",
+  weeklyReview: { shadow:"", win:"", challenge:"", change:"", energyAudit:"", letGo:"", nextWeekIntentions:"", futureLetter:"", weekRatingNote:"", rating:0 }
+};
+
+const HOURS = ["5am","6am","7am","8am","9am","10am","11am","12pm","1pm","2pm","3pm","4pm","5pm","6pm","7pm","8pm","9pm","10pm","11pm","12am","1am","2am","3am","4am"];
+const DAYS  = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const LEVELS = [
+  {min:0,    name:"🌱 Seedling",    desc:"Every master was once a beginner"},
+  {min:500,  name:"🌿 Sprout",      desc:"Growing strong, reaching for the light"},
+  {min:1500, name:"🌸 Bloom",       desc:"Your flowers are opening — beauty emerging"},
+  {min:3000, name:"✨ Radiant",     desc:"Glowing with consistency and grace"},
+  {min:5000, name:"💫 Luminous",    desc:"Your light inspires everyone around you"},
+  {min:8000, name:"👑 Legend",      desc:"A legacy of discipline, grace, and love"}
+];
+const AFFIRMATIONS = [
+  "I am worthy of rest AND achievement",
+  "Every small step moves me forward",
+  "I trust my own growth process",
+  "I can do hard things with grace",
+  "Today, I choose myself",
+  "Progress, not perfection",
+  "My effort is enough",
+  "I am becoming, and that is beautiful",
+  "Discipline is an act of self-love",
+  "I am not behind — I am exactly where I need to be"
+];
+
+/* ─── STORAGE (LOCAL + AUTO CLOUD SYNC) ─────────── */
+function saveToLocalAndCloud() {
+  localStorage.setItem('assiaGarden_v2', JSON.stringify(appData));
+  if (window.saveData) window.saveData();
+}
+
+function initDefaults() {
+  if (!appData.pfeTasks.length) appData.pfeTasks = [
+    {name:"Read 3 research papers", completed:false, season:"Month 1: Research"},
+    {name:"Explore PlantVillage dataset", completed:false, season:"Month 1: Research"},
+    {name:"Baseline CNN model", completed:false, season:"Month 2: Model Dev"}
+  ];
+  if (!appData.rewards.length) appData.rewards = [
+    {name:"🎵 Music session", cost:10},
+    {name:"☕ Fancy coffee", cost:12},
+    {name:"🎬 Watch a film", cost:35},
+    {name:"📖 Novel reading", cost:15},
+    {name:"🛁 Long bath", cost:20},
+    {name:"🍫 Chocolate treat", cost:8}
+  ];
+  if (!appData.weeks.length) {
+    appData.weeks.push({
+      id: Date.now(),
+      dateRange: '',
+      days: {Mon:[],Tue:[],Wed:[],Thu:[],Fri:[],Sat:[],Sun:[]},
+      notes: '',
+      intentions: ''
+    });
+  }
+  for (const h of HOURS) if (!appData.hourlySchedule[h]) appData.hourlySchedule[h] = "";
+}
+
+/* Expose load function for Firebase */
+window.loadAppData = function(saved) {
+  appData = { ...appData, ...saved };
+  initDefaults();
+  renderAll();
+};
+
+window.initAppAfterLogin = function() {
+  initDefaults();
+  renderAll();
+};
+
+/* ─── HELPERS ───────────────────────────────────── */
+function currentLevel() { return [...LEVELS].reverse().find(l => appData.totalXP >= l.min) || LEVELS[0]; }
+function nextLevel() { return LEVELS[LEVELS.indexOf(currentLevel()) + 1]; }
+function todayPriorityXP() { return appData.priorities.filter(p => p.completed).reduce((s,p) => s+p.xp, 0); }
+function esc(s) { return String(s || '').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+/* ─── RENDER ALL ─────────────────────────────────── */
+function renderAll() {
+  renderStats();
+  renderHourly();
+  renderPriorities();
+  renderNonNegotiables();
+  renderWeeks();
+  renderPFETasks();
+  renderInternship();
+  renderRewards();
+  renderPomodoroTasks();
+  renderLevels();
+  renderDashWidgets();
+  restoreReviewFields();
+  updateSidebarXP();
+  document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+}
+
+function renderStats() {
+  document.getElementById('totalXP').textContent = appData.totalXP;
+  document.getElementById('streakDays').textContent = appData.streak;
+  document.getElementById('todayXP').textContent = todayPriorityXP();
+  document.getElementById('hoursStudied').textContent = Math.floor(appData.studyMinutes / 60);
+  const lvl = currentLevel();
+  const next = nextLevel();
+  const earned = appData.totalXP - lvl.min;
+  const needed = next ? next.min - lvl.min : 1000;
+  const pct = Math.min(100, (earned / needed) * 100);
+  document.getElementById('levelProgress').style.width = pct + '%';
+  document.getElementById('currentLevelName').textContent = lvl.name;
+  document.getElementById('nextLevelInfo').textContent = next ? `${next.min - appData.totalXP} XP to ${next.name}` : 'Max level reached! 🎉';
+}
+
+function updateSidebarXP() {
+  const lvl = currentLevel();
+  const next = nextLevel();
+  const earned = appData.totalXP - lvl.min;
+  const needed = next ? next.min - lvl.min : 1000;
+  const pct = Math.min(100, (earned / needed) * 100);
+  document.getElementById('xpMiniFill').style.width = pct + '%';
+  document.getElementById('xpMiniLabel').textContent = `${appData.totalXP} XP · ${lvl.name}`;
+  document.getElementById('levelChip').textContent = lvl.name;
+}
+
+function renderDashWidgets() {
+  const dp = document.getElementById('dashPriorities');
+  dp.innerHTML = appData.priorities.slice(0,3).map((p,i) =>
+    `<div class="task-item">
+      <input type="checkbox" class="task-cb" ${p.completed?'checked':''} onchange="togglePriority(${i}); renderDashWidgets();">
+      <span class="task-text ${p.completed?'done':''}">${esc(p.text)}</span>
+      <span class="xp-pill">+${p.xp}</span>
+    </div>`
+  ).join('');
+  const dh = document.getElementById('dashHabits');
+  dh.innerHTML = appData.nonNegotiables.slice(0,4).map((n,i) =>
+    `<div class="nn-item"><input type="checkbox" onchange="checkNonNegotiable(${i},this.checked)"><span>${esc(n)}</span></div>`
+  ).join('');
+}
+
+function renderHourly() {
+  document.getElementById('hourlyTable').innerHTML = HOURS.map(h =>
+    `<div class="hour-row">
+      <div class="hour-lbl">${h}</div>
+      <div><input class="hour-input" type="text" value="${esc(appData.hourlySchedule[h]||'')}" placeholder="What are you doing?" onchange="updateHour('${h}',this.value)"></div>
+    </div>`
+  ).join('');
+}
+function updateHour(h,v) { appData.hourlySchedule[h]=v; saveToLocalAndCloud(); }
+
+function renderPriorities() {
+  document.getElementById('prioritiesList').innerHTML = appData.priorities.map((p,i) =>
+    `<div class="priority-item">
+      <input type="checkbox" class="priority-cb" ${p.completed?'checked':''} onchange="togglePriority(${i})">
+      <span class="priority-text ${p.completed?'done':''}">${esc(p.text)}</span>
+      <span class="xp-pill">+${p.xp} XP</span>
+      <button class="delete-btn" onclick="deletePriority(${i})">✕</button>
+    </div>`
+  ).join('');
+}
+function togglePriority(i) {
+  const p = appData.priorities[i];
+  p.completed = !p.completed;
+  appData.totalXP += p.completed ? p.xp : -p.xp;
+  if (appData.totalXP < 0) appData.totalXP = 0;
+  saveToLocalAndCloud(); renderAll();
+}
+function addPriority() {
+  const t = document.getElementById('newPriority').value.trim();
+  const xp = parseInt(document.getElementById('priorityXP').value);
+  if (t) { appData.priorities.push({text:t, xp, completed:false}); saveToLocalAndCloud(); renderAll(); document.getElementById('newPriority').value=''; }
+}
+function deletePriority(i) { appData.priorities.splice(i,1); saveToLocalAndCloud(); renderAll(); }
+
+function renderNonNegotiables() {
+  document.getElementById('nonNegotiablesList').innerHTML = appData.nonNegotiables.map((n,i) =>
+    `<div class="nn-item">
+      <input type="checkbox" onchange="checkNonNegotiable(${i},this.checked)">
+      <span>${esc(n)}</span>
+      <button class="delete-btn" onclick="deleteNN(${i})">✕</button>
+    </div>`
+  ).join('');
+}
+function checkNonNegotiable(i,checked) { appData.totalXP += checked ? 8 : -8; if(appData.totalXP<0) appData.totalXP=0; saveToLocalAndCloud(); renderStats(); updateSidebarXP(); }
+function addNonNegotiable() { const v=document.getElementById('newNN').value.trim(); if(v){ appData.nonNegotiables.push(v); saveToLocalAndCloud(); renderNonNegotiables(); document.getElementById('newNN').value=''; } }
+function deleteNN(i) { appData.nonNegotiables.splice(i,1); saveToLocalAndCloud(); renderNonNegotiables(); }
+
+function saveEndDayReview() {
+  appData.endDayReview = document.getElementById('endDayReview').value;
+  appData.totalXP += 50; appData.streak++;
+  saveToLocalAndCloud(); renderAll();
+  toast('✨ End of day saved! +50 XP bonus!');
+}
+
+function addWeek() { appData.weeks.unshift({ id: Date.now(), dateRange: '', days: {Mon:[],Tue:[],Wed:[],Thu:[],Fri:[],Sat:[],Sun:[]}, notes: '', intentions: '' }); saveToLocalAndCloud(); renderWeeks(); }
+function renderWeeks() {
+  const stack = document.getElementById('weeksStack');
+  stack.innerHTML = appData.weeks.map((w,wi) => renderWeekBlock(w,wi)).join('');
+}
+function renderWeekBlock(w, wi) {
+  const daysHtml = DAYS.map(d => {
+    const isWeekend = d === 'Sat' || d === 'Sun';
+    const todos = w.days[d] || [];
+    const todosHtml = todos.map((t,ti) =>
+      `<li class="day-todo-item">
+        <input type="checkbox" ${t.done?'checked':''} onchange="toggleDayTodo(${wi},'${d}',${ti})">
+        <span class="${t.done?'done':''}">${esc(t.text)}</span>
+        <button class="day-rm-btn" onclick="removeDayTodo(${wi},'${d}',${ti})">✕</button>
+      </li>`
+    ).join('');
+    return `<div class="week-day-col">
+      <div class="day-name ${isWeekend?'weekend':''}">${d} <span style="opacity:0.5;font-size:0.65rem;">${todos.filter(t=>t.done).length}/${todos.length}</span></div>
+      <ul class="day-todo">${todosHtml}</ul>
+      <input class="day-add-input" type="text" placeholder="+ task" id="dayInput_${w.id}_${d}"
+        onkeydown="if(event.key==='Enter'){addDayTodo(${wi},'${d}',this)}">
+    </div>`;
+  }).join('');
+  const totalTasks = DAYS.reduce((s,d)=>s+(w.days[d]||[]).length,0);
+  const doneTasks  = DAYS.reduce((s,d)=>s+(w.days[d]||[]).filter(t=>t.done).length,0);
+  const pct = totalTasks ? Math.round(doneTasks/totalTasks*100) : 0;
+  return `<div class="week-block">
+    <div class="week-block-header">
+      <div class="week-block-title">
+        🧭 Week ${appData.weeks.length - wi}
+        <span style="font-size:0.8rem; color:rgba(255,255,255,0.5); font-family:var(--font-body); font-weight:300;">${doneTasks}/${totalTasks} done · ${pct}%</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input class="week-date-input" type="text" value="${esc(w.dateRange)}" placeholder="e.g. 21–27 April 2025"
+          onchange="updateWeekField(${wi},'dateRange',this.value)">
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);" onclick="deleteWeek(${wi})">🗑</button>
+      </div>
+    </div>
+    <div class="week-days-grid">${daysHtml}</div>
+    <div class="week-bottom">
+      <div><div class="week-bottom-label">📔 Notes & Reflections</div><textarea class="week-notes-area" rows="3" onchange="updateWeekField(${wi},'notes',this.value)">${esc(w.notes)}</textarea></div>
+      <div><div class="week-bottom-label">🎯 Focus Intentions</div><textarea class="week-notes-area" rows="3" onchange="updateWeekField(${wi},'intentions',this.value)">${esc(w.intentions||'')}</textarea><div style="margin-top:8px;"><button class="btn btn-sm" onclick="saveWeek(${wi})">💾 Save Week</button></div></div>
+    </div>
+  </div>`;
+}
+function addDayTodo(wi, day, input) { const v = input.value.trim(); if (!v) return; if (!appData.weeks[wi].days[day]) appData.weeks[wi].days[day] = []; appData.weeks[wi].days[day].push({text:v, done:false}); input.value = ''; saveToLocalAndCloud(); renderWeeks(); }
+function toggleDayTodo(wi, day, ti) { const t = appData.weeks[wi].days[day][ti]; t.done = !t.done; appData.totalXP += t.done ? 5 : -5; if (appData.totalXP < 0) appData.totalXP = 0; saveToLocalAndCloud(); renderWeeks(); renderStats(); updateSidebarXP(); }
+function removeDayTodo(wi, day, ti) { appData.weeks[wi].days[day].splice(ti,1); saveToLocalAndCloud(); renderWeeks(); }
+function updateWeekField(wi, field, val) { appData.weeks[wi][field] = val; saveToLocalAndCloud(); }
+function saveWeek(wi) { saveToLocalAndCloud(); toast('Week saved ✨'); }
+function deleteWeek(wi) { if (confirm('Delete this week?')) { appData.weeks.splice(wi,1); saveToLocalAndCloud(); renderWeeks(); } }
+
+function renderPFETasks() {
+  const done = appData.pfeTasks.filter(t=>t.completed).length;
+  const pct = appData.pfeTasks.length ? Math.round(done/appData.pfeTasks.length*100) : 0;
+  document.getElementById('pfeProgress').style.width = pct + '%';
+  document.getElementById('pfePercent').textContent = pct + '% complete';
+  document.getElementById('pfeTasks').innerHTML = appData.pfeTasks.map((t,i) =>
+    `<div class="task-item"><input type="checkbox" class="task-cb" ${t.completed?'checked':''} onchange="togglePFETask(${i})"><span class="task-text ${t.completed?'done':''}">${esc(t.name)}</span><span class="season-tag">${esc(t.season.split(':')[0])}</span><button class="delete-btn" onclick="deletePFETask(${i})">✕</button></div>`
+  ).join('');
+}
+function togglePFETask(i) { appData.pfeTasks[i].completed = !appData.pfeTasks[i].completed; appData.totalXP += appData.pfeTasks[i].completed ? 15 : -15; if(appData.totalXP<0) appData.totalXP=0; saveToLocalAndCloud(); renderAll(); }
+function addPFETask() { const n=document.getElementById('pfeTaskName').value.trim(); const s=document.getElementById('pfeSeason').value; if(n){ appData.pfeTasks.push({name:n,completed:false,season:s}); saveToLocalAndCloud(); renderAll(); document.getElementById('pfeTaskName').value=''; } }
+function deletePFETask(i) { appData.pfeTasks.splice(i,1); saveToLocalAndCloud(); renderAll(); }
+
+function renderInternship() {
+  document.getElementById('internshipTasks').innerHTML = (appData.internshipTasks||[]).map((t,i) =>
+    `<div class="task-item"><input type="checkbox" class="task-cb" ${t.completed?'checked':''} onchange="toggleInternTask(${i})"><span class="task-text ${t.completed?'done':''}">${esc(t.text)}</span><button class="delete-btn" onclick="deleteInternTask(${i})">✕</button></div>`
+  ).join('');
+  document.getElementById('internshipLog').value = appData.internshipLog;
+}
+function addInternTask() { const v=document.getElementById('internTaskName').value.trim(); if(v){ appData.internshipTasks.push({text:v,completed:false}); saveToLocalAndCloud(); renderInternship(); document.getElementById('internTaskName').value=''; } }
+function toggleInternTask(i) { appData.internshipTasks[i].completed=!appData.internshipTasks[i].completed; appData.totalXP+=appData.internshipTasks[i].completed?10:-10; if(appData.totalXP<0) appData.totalXP=0; saveToLocalAndCloud(); renderStats(); updateSidebarXP(); renderInternship(); }
+function deleteInternTask(i) { appData.internshipTasks.splice(i,1); saveToLocalAndCloud(); renderInternship(); }
+function saveInternLog() { appData.internshipLog=document.getElementById('internshipLog').value; saveToLocalAndCloud(); toast('Log saved!'); }
+
+function renderRewards() {
+  document.getElementById('availableXP').textContent = appData.totalXP;
+  document.getElementById('rewardGrid').innerHTML = appData.rewards.map((r,i) => {
+    const canAfford = appData.totalXP >= r.cost;
+    return `<div class="reward-card ${canAfford?'':'locked'}" onclick="buyReward(${i})"><div class="reward-name">${esc(r.name)}</div><div class="reward-cost">💎 ${r.cost} XP</div>${!canAfford ? `<div style="font-size:0.68rem;color:var(--sage);margin-top:4px;">Need ${r.cost-appData.totalXP} more</div>` : ''}</div>`;
+  }).join('');
+}
+function buyReward(i) { const r = appData.rewards[i]; if (appData.totalXP < r.cost) { toast(`Need ${r.cost - appData.totalXP} more XP`); return; } appData.totalXP -= r.cost; saveToLocalAndCloud(); renderAll(); toast(`🎉 Enjoy your ${r.name}!`); }
+function addCustomReward() { const n = prompt("Reward name:"); const c = parseInt(prompt("XP cost:")); if (n && c) { appData.rewards.push({name:n, cost:c}); saveToLocalAndCloud(); renderRewards(); } }
+
+let timerInterval = null, currentSeconds = 1500;
+function renderPomodoroTasks() {
+  const tasks = appData.priorities.filter(p=>!p.completed).map(p=>p.text);
+  tasks.push(...appData.nonNegotiables.slice(0,2));
+  document.getElementById('pomodoroTaskList').innerHTML = tasks.length ? tasks.map(t=>`<div class="task-item"><span>🍅</span><span class="task-text">${esc(t)}</span></div>`).join('') : '<p style="color:var(--sage); font-size:0.85rem;">No pending tasks! Great job 🎉</p>';
+}
+function setTimer(m) { clearInterval(timerInterval); timerInterval=null; currentSeconds=m*60; updateTimerDisplay(); appData.studyMinutes+=m; saveToLocalAndCloud(); renderStats(); document.getElementById('timerPhase').textContent = `${m} minute focus block`; }
+function updateTimerDisplay() { const m=Math.floor(currentSeconds/60),s=currentSeconds%60; document.getElementById('timerDisplay').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
+function startTimer() { if (timerInterval) return; document.getElementById('timerPhase').textContent = 'Focusing... 🔥'; timerInterval = setInterval(()=>{ if (currentSeconds > 0) { currentSeconds--; updateTimerDisplay(); } else { clearInterval(timerInterval); timerInterval=null; document.getElementById('timerPhase').textContent='Session complete! 🎉'; toast('🎉 Focus session complete! Amazing work!'); } }, 1000); }
+function pauseTimer() { clearInterval(timerInterval); timerInterval=null; document.getElementById('timerPhase').textContent='Paused'; }
+function resetTimer() { clearInterval(timerInterval); timerInterval=null; currentSeconds=1500; updateTimerDisplay(); document.getElementById('timerPhase').textContent='Ready to focus?'; }
+
+function renderLevels() {
+  const lvl = currentLevel();
+  document.getElementById('heroLevelName').textContent = lvl.name;
+  document.getElementById('heroLevelDesc').textContent = lvl.desc;
+  document.getElementById('allLevelsList').innerHTML = LEVELS.map(l => {
+    const unlocked = appData.totalXP >= l.min;
+    return `<div class="level-item ${unlocked?'unlocked':''}"><div class="level-icon">${l.name.split(' ')[0]}</div><div class="level-info"><div class="level-name-text">${l.name}</div><div class="level-req">${l.desc} · Requires ${l.min} XP</div></div><div class="level-badge-status ${unlocked?'earned':'locked'}">${unlocked?'✅ Earned':'🔒 Locked'}</div></div>`;
+  }).join('');
+}
+
+function restoreReviewFields() {
+  const r = appData.weeklyReview;
+  const ids = ['shadowAnswer','weeklyWin','weeklyChallenge','weeklyChange','energyAudit','letGo','nextWeekIntentions','futureLetter','weekRatingNote'];
+  const keys = ['shadow','win','challenge','change','energyAudit','letGo','nextWeekIntentions','futureLetter','weekRatingNote'];
+  ids.forEach((id,i) => { if(r[keys[i]]) document.getElementById(id).value = r[keys[i]]; });
+  renderStars(r.rating || 0);
+}
+function saveWeeklyReview() {
+  const r = appData.weeklyReview;
+  r.shadow = document.getElementById('shadowAnswer').value;
+  r.win = document.getElementById('weeklyWin').value;
+  r.challenge = document.getElementById('weeklyChallenge').value;
+  r.change = document.getElementById('weeklyChange').value;
+  r.energyAudit = document.getElementById('energyAudit').value;
+  r.letGo = document.getElementById('letGo').value;
+  r.nextWeekIntentions = document.getElementById('nextWeekIntentions').value;
+  r.futureLetter = document.getElementById('futureLetter').value;
+  r.weekRatingNote = document.getElementById('weekRatingNote').value;
+  saveToLocalAndCloud(); toast('Weekly review saved 🌟');
+}
+function refreshAffirmation() { document.getElementById('affirmationText').textContent = '"' + AFFIRMATIONS[Math.floor(Math.random()*AFFIRMATIONS.length)] + '"'; }
+function renderStars(rating) {
+  const row = document.getElementById('starsRow');
+  row.innerHTML = [1,2,3,4,5].map(i => `<span style="cursor:pointer; transition: transform 0.15s; display:inline-block; ${i<=rating?'filter:none':'filter:grayscale(1) opacity(0.35)'}" onclick="setRating(${i})" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">⭐</span>`).join('');
+}
+function setRating(r) { appData.weeklyReview.rating = r; saveToLocalAndCloud(); renderStars(r); }
+
+function initChart() {
+  const ctx = document.getElementById('weeklyChart')?.getContext('2d');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label: 'XP Earned', data: [45,60,30,80,55,70,90], backgroundColor: 'rgba(232,180,184,0.7)', borderColor: 'rgba(176,138,158,0.8)', borderWidth: 1, borderRadius: 8 }] },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(90,122,107,0.08)' }, ticks: { color: '#5a7a6b', font: { size: 11 } } }, x: { grid: { display: false }, ticks: { color: '#5a7a6b', font: { size: 11 } } } } }
+  });
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('main').classList.toggle('expanded');
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById(item.dataset.page).classList.add('active');
+  });
+});
+
+/* Bootstrap from localStorage first, Firebase will override if newer */
+const stored = localStorage.getItem('assiaGarden_v2');
+if (stored) { try { appData = { ...appData, ...JSON.parse(stored) }; } catch(e){} }
+initDefaults();
+renderAll();
+initChart();
+</script>
+</body>
+</html>
